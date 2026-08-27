@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lexikon — Vocabulary Trainer</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1B2A41">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAFAF7; --card:#FFFFFF; --ink:#1B2A41; --ink-soft:#5C6B7A;
+    --line:#E4E2DA; --hi:#FFE34D; --hi-soft:#FFF6C7;
+    --everyday:#3E7C59; --everyday-soft:#E7F2EC;
+    --business:#2C4A7C; --business-soft:#E8EEF8;
+    --danger:#B5432F; --ok:#3E7C59;
+    --radius:14px;
+    --display:'Spectral',Georgia,serif; --body:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 18px 90px}
+  body.wide .wrap{max-width:1060px}
+
+  /* header */
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:6px}
+  h1{font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:-.5px;line-height:1.1}
+  h1 .hl{background:linear-gradient(180deg,transparent 55%,var(--hi) 55%,var(--hi) 92%,transparent 92%)}
+  .streak{display:flex;flex-direction:column;align-items:flex-end}
+  .streak b{font-family:var(--display);font-size:26px;line-height:1}
+  .streak span{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-soft)}
+  .subtitle{color:var(--ink-soft);font-size:13.5px;margin-bottom:22px}
+
+  /* nav */
+  nav{display:flex;gap:6px;border-bottom:2px solid var(--ink);margin-bottom:26px;flex-wrap:wrap}
+  nav button{appearance:none;border:none;background:none;font:600 13.5px var(--body);color:var(--ink-soft);
+    padding:9px 13px;cursor:pointer;border-radius:8px 8px 0 0;position:relative}
+  nav button .due{display:inline-block;min-width:18px;padding:1px 5px;margin-left:5px;border-radius:9px;
+    background:var(--danger);color:#fff;font-size:11px;font-weight:700;text-align:center}
+  nav button.active{color:var(--ink);background:var(--ink);color:var(--paper)}
+  nav button:focus-visible{outline:2px solid var(--business);outline-offset:2px}
+
+  h2{font-family:var(--display);font-size:21px;font-weight:700;margin-bottom:4px}
+  .hint{color:var(--ink-soft);font-size:13px;margin-bottom:16px}
+
+  /* cards & lists */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:12px}
+  .wordrow{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+  .wordrow .w{font-family:var(--display);font-size:19px;font-weight:700}
+  .meaning{margin-top:3px}
+  .phon{font-family:'Charis SIL','Doulos SIL','Gentium Plus','Noto Sans','DejaVu Sans',var(--body);color:var(--ink-soft);font-size:14px;font-weight:400;letter-spacing:.01em}
+  .flash .phon{margin-bottom:6px;font-size:16px}
+  .say{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;
+    padding:3px 9px 3px 8px;font:600 12px var(--body);cursor:pointer;vertical-align:middle;margin-left:6px;line-height:1.4;
+    display:inline-flex;align-items:center;gap:4px}
+  .say:hover{border-color:var(--ink)}
+  .say.playing{background:var(--hi-soft);border-color:var(--hi)}
+  .say.slow{margin-left:3px}
+  .flash .saybar{margin-top:14px;display:flex;justify-content:center;gap:8px}
+  .flash .saybar .say{font-size:13px;padding:6px 14px}
+  .voice-note{font-size:12px;color:var(--ink-soft);margin-top:10px}
+  .example{margin-top:7px;font-style:italic;color:var(--ink-soft);border-left:3px solid var(--hi);padding-left:10px}
+  .source{margin-top:8px;font-size:12px;color:var(--ink-soft)}
+  .meta{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:3px 9px;border-radius:20px}
+  .tag.everyday{background:var(--everyday-soft);color:var(--everyday)}
+  .tag.business{background:var(--business-soft);color:var(--business)}
+  .tag.group{background:var(--hi-soft);color:#7a5d00;text-transform:none;letter-spacing:0;font-weight:600}
+  .grouphead{display:flex;align-items:baseline;gap:8px;margin:22px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+  .grouphead:first-of-type{margin-top:4px}
+  .grouphead span{font-family:var(--display);font-size:17px;font-weight:700}
+  .grouphead small{color:var(--ink-soft);font-size:12px}
+  .listlayout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:26px;align-items:start}
+  .listmain{min-width:0}
+  .index{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 8px 12px;font-size:13px}
+  .indexhead{font-family:var(--display);font-size:16px;font-weight:700;padding:4px 8px 8px;border-bottom:2px solid var(--ink);margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline}
+  .indexhead small{font:500 11px var(--body);color:var(--ink-soft)}
+  .index a,.index .ix-ch.empty{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink);border-radius:7px;padding:5px 8px}
+  .index a.ix-ch{font-weight:700;margin-top:6px}
+  .index .ix-ch.empty{color:var(--ink-soft);opacity:.55;font-weight:600;margin-top:6px}
+  .index a.ix-g{font-weight:400;padding-left:18px;color:var(--ink-soft);position:relative}
+  .index a.ix-g::before{content:"";position:absolute;left:9px;top:0;bottom:0;border-left:1px solid var(--line)}
+  .index a:hover{background:var(--paper);color:var(--ink)}
+  .index a.on{background:var(--hi-soft);color:var(--ink)}
+  .index small{color:var(--ink-soft);font-size:11px;flex-shrink:0}
+  .chaphead{display:flex;align-items:baseline;gap:10px;margin:30px 0 6px;scroll-margin-top:12px}
+  .chaphead:first-of-type{margin-top:4px}
+  .chaphead span{font-family:var(--display);font-size:24px;font-weight:700;background:linear-gradient(180deg,transparent 60%,var(--hi) 60%,var(--hi) 92%,transparent 92%);padding:0 4px}
+  .chaphead small{color:var(--ink-soft);font-size:12px}
+  .grouphead{scroll-margin-top:12px}
+  .flashhead{animation:flashhead 1.2s ease-out}
+  @keyframes flashhead{0%{background:var(--hi-soft)}100%{background:transparent}}
+  @media(max-width:820px){
+    body.wide .wrap{max-width:760px}
+    .listlayout{display:block}
+    .index{position:static;max-height:none;margin-bottom:16px;columns:2;column-gap:16px}
+    .index .indexhead{column-span:all}
+    .index a,.index .ix-ch.empty{break-inside:avoid}
+  }
+  .sortlink{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+  .sortlink.on{color:var(--ink);font-weight:600;text-decoration:none}
+  .nextrev{font-size:12px;color:var(--ink-soft)}
+  .nextrev.due{color:var(--danger);font-weight:600}
+
+  /* forgetting-curve stage dots */
+  .stages{display:flex;gap:4px;align-items:center}
+  .stages i{width:8px;height:8px;border-radius:50%;background:var(--line);display:block}
+  .stages i.done{background:var(--ink)}
+  .stages i.mastered{background:var(--everyday)}
+  .stages-label{font-size:11px;color:var(--ink-soft)}
+
+  .rowbtns{display:flex;gap:6px;flex-shrink:0}
+  .iconbtn{appearance:none;border:1px solid var(--line);background:var(--card);border-radius:8px;
+    padding:5px 9px;font:500 12px var(--body);color:var(--ink-soft);cursor:pointer}
+  .iconbtn:hover{border-color:var(--ink);color:var(--ink)}
+  .iconbtn.danger:hover{border-color:var(--danger);color:var(--danger)}
+
+  /* buttons */
+  .btn{appearance:none;border:none;border-radius:10px;padding:11px 20px;font:600 14px var(--body);cursor:pointer}
+  .btn:focus-visible{outline:2px solid var(--business);outline-offset:2px}
+  .btn.primary{background:var(--ink);color:var(--paper)}
+  .btn.primary:hover{background:#2b3d58}
+  .btn.ghost{background:none;border:1.5px solid var(--ink);color:var(--ink)}
+  .btn.good{background:var(--everyday);color:#fff}
+  .btn.bad{background:var(--paper);border:1.5px solid var(--danger);color:var(--danger)}
+  .btn:disabled{opacity:.45;cursor:default}
+
+  /* review flashcard */
+  .flash{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:46px 26px 30px;text-align:center;position:relative;overflow:hidden}
+  .flash .tag{position:absolute;top:14px;left:14px}
+  .flash .count{position:absolute;top:16px;right:16px;font-size:12px;color:var(--ink-soft)}
+  .flash .word{font-family:var(--display);font-size:40px;font-weight:700;display:inline;line-height:1.35;
+    background:linear-gradient(180deg,transparent 58%,var(--hi) 58%,var(--hi) 94%,transparent 94%);padding:0 6px}
+  .flash .answer{margin-top:22px;text-align:left;border-top:1px dashed var(--line);padding-top:18px}
+  .flash .answer .meaning{font-size:17px;font-weight:600}
+  .reviewbtns{display:flex;gap:10px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+  .curvebar{display:flex;justify-content:center;margin-top:20px}
+
+  .done-panel{text-align:center;padding:52px 20px}
+  .done-panel .big{font-family:var(--display);font-size:28px;font-weight:700;margin-bottom:8px}
+  .done-panel p{color:var(--ink-soft);margin-bottom:20px}
+
+  /* forms */
+  form .field{margin-bottom:13px}
+  label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:5px}
+  input[type=text],textarea,select{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--card);
+    padding:10px 12px;font:400 14.5px var(--body);color:var(--ink)}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--business);outline-offset:1px;border-color:var(--business)}
+  textarea{resize:vertical;min-height:70px}
+  .modpick{display:flex;gap:8px}
+  .modpick button{flex:1;padding:11px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);
+    font:600 13.5px var(--body);color:var(--ink-soft);cursor:pointer}
+  .modpick button.sel-everyday{border-color:var(--everyday);background:var(--everyday-soft);color:var(--everyday)}
+  .modpick button.sel-business{border-color:var(--business);background:var(--business-soft);color:var(--business)}
+
+  .searchbar{margin-bottom:14px}
+  .empty{border:1.5px dashed var(--line);border-radius:var(--radius);padding:40px 20px;text-align:center;color:var(--ink-soft)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);
+    padding:10px 20px;border-radius:30px;font-size:13.5px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90%}
+  .toast.show{opacity:1}
+  .divider{display:flex;align-items:center;gap:12px;margin:24px 0 16px;color:var(--ink-soft);font-size:12px;
+    text-transform:uppercase;letter-spacing:.08em}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+  .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;text-align:center}
+  .stat b{font-family:var(--display);font-size:24px;display:block}
+  .stat span{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft)}
+  .footer-note{margin-top:14px;font-size:12.5px;color:var(--ink-soft)}
+  .modal-bg{position:fixed;inset:0;background:rgba(27,42,65,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal-bg[hidden]{display:none}
+  .modal{background:var(--card);border-radius:var(--radius);padding:22px;max-width:420px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .modal p{font-size:15px;line-height:1.5;margin-bottom:14px}
+  .modal input{margin-bottom:14px}
+  .modalbtns{display:flex;gap:10px;justify-content:flex-end}
+  .filebtn{position:relative;overflow:hidden}
+  .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .plan{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px 10px;margin-bottom:14px}
+  .planrow{display:flex;gap:14px;flex-wrap:wrap}
+  .planitem{flex:1;min-width:180px}
+  .planlbl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft)}
+  .plansub{display:block;font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .stepper{display:inline-flex;align-items:center;gap:2px;margin-top:4px}
+  .stepper b{font-family:var(--display);font-size:24px;min-width:44px;text-align:center}
+  .stepper button{appearance:none;width:30px;height:30px;border-radius:50%;border:1.5px solid var(--ink);background:var(--card);font:700 16px var(--body);cursor:pointer;color:var(--ink)}
+  .stepper button:disabled{opacity:.3;cursor:default}
+  .planfoot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+  .spark{display:flex;align-items:flex-end;gap:3px;height:36px;margin-top:8px}
+  .spark i{flex:1;background:var(--business-soft);border-top:2px solid var(--business);border-radius:2px 2px 0 0;display:block}
+  .spark i:first-child{background:var(--hi-soft);border-top-color:#c9a800}
+  @media(max-width:520px){
+    h1{font-size:27px}.flash .word{font-size:30px}.statgrid{grid-template-columns:repeat(3,1fr)}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Lexi<span class="hl">kon</span></h1>
+    </div>
+    <div class="streak"><b id="streakNum">0</b><span>day streak</span></div>
+  </header>
+  <p class="subtitle">Everyday &amp; business English, reviewed on the Ebbinghaus curve.<span id="modeNote"></span></p>
+
+  <nav>
+    <button id="tab-today" class="active" onclick="go('today')">Today’s review <span class="due" id="dueBadge" style="display:none">0</span></button>
+    <button id="tab-everyday" onclick="go('everyday')">Everyday</button>
+    <button id="tab-business" onclick="go('business')">Business</button>
+    <button id="tab-add" onclick="go('add')">Add words</button>
+  </nav>
+
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<div class="modal-bg" id="modalBg" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <p id="modalMsg"></p>
+    <input type="text" id="modalInput" hidden>
+    <div class="modalbtns"><button class="btn ghost" id="modalNo">Cancel</button><button class="btn primary" id="modalYes">OK</button></div>
+  </div>
+</div>
+
+<script>
+/* ---------- state ---------- */
+const INTERVALS = [1,2,4,7,15,30,60];        // days between reviews per stage (Ebbinghaus)
+const STORE_KEY = 'lexikon-data-v1';
+let db = { words: [], checkins: {} };
+let view = 'today';
+let session = { queue: [], idx: 0, revealed: false, doneCount: 0, active: false };
+let searchTerm = { everyday:'', business:'' };
+let addModule = 'everyday';
+let listMode = 'group';   // 'group' | 'due'
+
+const todayStr = () => new Date().toISOString().slice(0,10);
+const addDays = (dateStr, n) => { const d = new Date(dateStr+'T12:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- in-app dialogs (native confirm/prompt are blocked inside sandboxed artifacts) ---------- */
+function dialog(msg, opts={}){
+  return new Promise(res=>{
+    const bg=document.getElementById('modalBg'), inp=document.getElementById('modalInput'),
+          yes=document.getElementById('modalYes'), no=document.getElementById('modalNo');
+    document.getElementById('modalMsg').textContent = msg;
+    yes.textContent = opts.okLabel || 'OK';
+    yes.className = 'btn ' + (opts.danger ? 'bad' : 'primary');
+    if(opts.input !== undefined){ inp.hidden=false; inp.value=opts.input; } else { inp.hidden=true; }
+    bg.hidden=false;
+    if(!inp.hidden) setTimeout(()=>{inp.focus(); inp.select();},30);
+    const done = v => { bg.hidden=true; yes.onclick=no.onclick=null; inp.onkeydown=null; res(v); };
+    yes.onclick = ()=> done(inp.hidden ? true : inp.value);
+    no.onclick  = ()=> done(inp.hidden ? false : null);
+    inp.onkeydown = e => { if(e.key==='Enter') yes.onclick(); if(e.key==='Escape') no.onclick(); };
+    bg.onclick = e => { if(e.target===bg) no.onclick(); };
+  });
+}
+const askConfirm = (msg, opts) => dialog(msg, opts);
+const askPrompt  = (msg, def) => dialog(msg, {input: String(def ?? '')});
+
+/* ---------- storage ----------
+   Inside claude.ai the artifact uses window.storage (synced to your account).
+   When the file is opened as a plain .html in a browser, window.storage does not exist,
+   so it falls back to the browser's own local storage. Data does NOT move between the two
+   automatically — use Export / Import to carry it across. */
+const standalone = !(window.storage && typeof window.storage.get === 'function');
+const store = {
+  async get(k){ if(!standalone) return window.storage.get(k);
+    const v = localStorage.getItem(k); if(v===null) throw new Error('missing'); return {key:k, value:v}; },
+  async set(k,v){ if(!standalone) return window.storage.set(k,v); localStorage.setItem(k,v); return {key:k}; }
+};
+async function load(){
+  try{
+    const r = await store.get(STORE_KEY);
+    if(r && r.value) db = JSON.parse(r.value);
+  }catch(e){ /* first run: no data yet */ }
+  if(!db.words) db.words = [];
+  if(!db.checkins) db.checkins = {};
+  db.words.forEach(w=>{ if(w.stage>0 && !w.intro) w.intro = w.added || todayStr(); });
+  settings();
+}
+async function save(){
+  try{ await store.set(STORE_KEY, JSON.stringify(db)); }
+  catch(e){ toast('Could not save — please try again'); }
+}
+
+/* ---------- streak & due ---------- */
+function streak(){
+  let s = 0, d = todayStr();
+  if(!db.checkins[d]) d = addDays(d,-1);           // streak survives until today is missed
+  while(db.checkins[d]){ s++; d = addDays(d,-1); }
+  return s;
+}
+
+/* ---------- daily plan (Ebbinghaus with a controlled intake) ----------
+   A word is NEW until it has been shown once (w.intro is set on first sight).
+   Each day: all LEARNED words that are due (oldest overdue first, up to a soft cap)
+   + a fixed number of NEW words. New words are introduced in book order, grouped by topic,
+   so related words are learned together. Both numbers can be flexed for the day. */
+const DEFAULT_SETTINGS = { newPerDay: 15, reviewCap: 80 };
+function settings(){ if(!db.settings) db.settings = {...DEFAULT_SETTINGS}; return db.settings; }
+function todayPlan(){
+  const t = todayStr();
+  if(!db.plan || db.plan.date !== t) db.plan = { date: t, newExtra: 0, reviewExtra: 0, introduced: 0, reviewed: 0 };
+  return db.plan;
+}
+const isNew = w => !w.intro;
+const dueReviews = () => db.words.filter(w => !isNew(w) && w.next <= todayStr())
+  .sort((a,b)=> a.next.localeCompare(b.next) || a.stage - b.stage);
+function newPool(){
+  // book order: by group first-appearance, then insertion order
+  const pool = db.words.filter(isNew);
+  const order = []; db.words.forEach(w=>{ const g=w.group||''; if(!order.includes(g)) order.push(g); });
+  return pool.sort((a,b)=> order.indexOf(a.group||'') - order.indexOf(b.group||'') || a.added.localeCompare(b.added) || a.id.localeCompare(b.id));
+}
+function todayTargets(){
+  const st = settings(), pl = todayPlan();
+  return {
+    newTarget: Math.max(0, st.newPerDay + pl.newExtra),
+    reviewCap: Math.max(0, st.reviewCap + pl.reviewExtra)
+  };
+}
+// what remains for today
+function todayWork(){
+  const {newTarget, reviewCap} = todayTargets();
+  const pl = todayPlan();
+  const rev = dueReviews();
+  const revTake = rev.slice(0, Math.max(0, reviewCap - pl.reviewed));
+  const revDeferred = rev.length - revTake.length;
+  const pool = newPool();
+  const newTake = pool.slice(0, Math.max(0, newTarget - pl.introduced));
+  const newWaiting = pool.length - newTake.length;
+  return { revTake, revDeferred, newTake, newWaiting, rev, pool };
+}
+const dueWords = () => { const w = todayWork(); return [...w.revTake, ...w.newTake]; };
+
+/* projection: simulate the coming days with current settings */
+function projectLoad(days){
+  const st = settings();
+  const t = todayStr();
+  const sim = db.words.map(w=>({ intro: !!w.intro, stage: w.stage, next: w.next }));
+  const out = [];
+  let d = t;
+  for(let i=0;i<days;i++){
+    let reviews = 0, news = 0;
+    for(const w of sim){
+      if(w.intro && w.next <= d){ reviews++; w.next = addDays(d, INTERVALS[Math.min(w.stage, INTERVALS.length-1)]); w.stage = Math.min(w.stage+1, INTERVALS.length); }
+    }
+    for(const w of sim){
+      if(!w.intro && news < st.newPerDay){ w.intro = true; news++; w.next = addDays(d, INTERVALS[0]); w.stage = 1; }
+    }
+    // words that have reached the top of the curve are "mastered" and drop out
+    out.push({ date: d, reviews: Math.min(reviews, st.reviewCap), news });
+    d = addDays(d,1);
+  }
+  return out;
+}
+function suggestTargets(){
+  const backlog = newPool().length;
+  let n = 10;
+  if(backlog > 200) n = 25; else if(backlog > 100) n = 20; else if(backlog > 40) n = 15; else if(backlog > 15) n = 10; else n = Math.max(5, backlog);
+  return { newPerDay: n, reviewCap: Math.max(40, n * 5) };
+}
+async function setNewPerDay(v){ settings().newPerDay = Math.max(0, v); await save(); session.active=false; render(); }
+async function setReviewCap(v){ settings().reviewCap = Math.max(0, v); await save(); session.active=false; render(); }
+async function flexToday(kind, delta){
+  const pl = todayPlan();
+  if(kind==='new') pl.newExtra += delta; else pl.reviewExtra += delta;
+  await save(); session.active=false; render();
+}
+async function applySuggested(){ const sg = suggestTargets(); Object.assign(settings(), sg); await save(); session.active=false; render(); toast(`Plan set: ${sg.newPerDay} new words/day`); }
+
+/* ---------- review logic ---------- */
+function startSession(){
+  session = { queue: dueWords().map(w=>w.id), idx:0, revealed:false, doneCount:0, active:true };
+}
+async function grade(remembered){
+  const id = session.queue[session.idx];
+  const w = db.words.find(x=>x.id===id);
+  const pl = todayPlan();
+  if(w){
+    if(remembered){
+      const iv = INTERVALS[Math.min(w.stage, INTERVALS.length-1)];
+      w.next = addDays(todayStr(), iv);
+      w.stage = Math.min(w.stage+1, INTERVALS.length);
+      w.reviews = (w.reviews||0)+1;
+      session.queue.splice(session.idx,1);
+      session.doneCount++;
+      pl.reviewed++;
+    }else{
+      w.stage = Math.max(0, w.stage-2);            // slide back down the curve
+      w.lapses = (w.lapses||0)+1;
+      session.queue.splice(session.idx,1);
+      session.queue.push(id);                      // re-queue at the end of today’s deck
+    }
+  }
+  if(session.idx >= session.queue.length) session.idx = 0;
+  session.revealed = false;
+  if(session.queue.length === 0){ await checkin(); }
+  await save();
+  render();
+}
+function markIntro(w){
+  if(isNew(w)){ w.intro = todayStr(); todayPlan().introduced++; }
+}
+async function checkin(){
+  const t = todayStr();
+  if(!db.checkins[t]){ db.checkins[t] = true; await save(); }
+}
+
+/* ---------- snapshot history (for Revert) ---------- */
+const HISTORY_KEY = 'lexikon-history-v1';
+const MAX_HISTORY = 20;
+let history = [];   // [{at, label, db}] newest last
+
+async function loadHistory(){
+  try{ const r = await store.get(HISTORY_KEY); if(r && r.value) history = JSON.parse(r.value); }
+  catch(e){ history = []; }
+  if(!Array.isArray(history)) history = [];
+}
+async function saveHistory(){
+  try{ await store.set(HISTORY_KEY, JSON.stringify(history)); }catch(e){}
+}
+async function snapshot(label){
+  history.push({ at: new Date().toISOString(), label, words: db.words.length, db: JSON.parse(JSON.stringify(db)) });
+  while(history.length > MAX_HISTORY) history.shift();
+  await saveHistory();
+}
+async function revert(){
+  if(!history.length){ toast('Nothing to revert to yet'); return; }
+  const last = history[history.length-1];
+  const when = new Date(last.at).toLocaleString();
+  if(!await askConfirm(`Revert to the version before “${last.label}” (${when}, ${last.words} words)? Changes made since then will be undone.`, {okLabel:'Revert'})) return;
+  db = last.db;
+  history.pop();
+  session = { queue: [], idx: 0, revealed: false, doneCount: 0, active: false };
+  await saveHistory();
+  await save();
+  toast(`Reverted — back to ${db.words.length} words`);
+  render();
+}
+function historyLabel(){
+  if(!history.length) return 'No earlier versions saved yet.';
+  const last = history[history.length-1];
+  return `${history.length} earlier version${history.length===1?'':'s'} available. Most recent change: “${last.label}” at ${new Date(last.at).toLocaleString()}.`;
+}
+
+/* ---------- CRUD ---------- */
+function normaliseModule(m){
+  m = String(m||'').toLowerCase();
+  return (m.startsWith('bus')||m==='work') ? 'business' : 'everyday';
+}
+function addWord(o, updateDup){
+  const word = String(o.word||'').trim();
+  if(!word) return false;
+  const mod = normaliseModule(o.module);
+  const dup = db.words.find(w => w.word.toLowerCase()===word.toLowerCase() && w.module===mod);
+  if(dup){
+    if(!updateDup) return 'dup';
+    // refresh content, keep review progress (stage / next / added)
+    if(o.phonetic!==undefined) dup.phonetic = String(o.phonetic||'').trim();
+    if(o.group!==undefined) dup.group = String(o.group||'').trim();
+    if(o.chapter!==undefined) dup.chapter = String(o.chapter||'').trim();
+    if(o.meaning!==undefined) dup.meaning = String(o.meaning||'').trim();
+    if(o.example!==undefined) dup.example = String(o.example||'').trim();
+    if(o.source!==undefined)  dup.source  = String(o.source||'').trim();
+    return 'updated';
+  }
+  db.words.push({
+    id: uid(), word,
+    phonetic: String(o.phonetic||'').trim(),
+    group: String(o.group||'').trim(),
+    chapter: String(o.chapter||'').trim(),
+    meaning: String(o.meaning||'').trim(),
+    example: String(o.example||'').trim(),
+    source: String(o.source||'').trim(),
+    module: mod, added: todayStr(), stage: 0, next: todayStr()
+  });
+  return true;
+}
+async function removeWord(id){
+  const w = db.words.find(x=>x.id===id);
+  await snapshot(`Deleted “${w?w.word:'word'}”`);
+  db.words = db.words.filter(w=>w.id!==id);
+  await save(); render();
+  toast('Word removed');
+}
+async function moveWord(id){
+  const w = db.words.find(x=>x.id===id);
+  if(w){ await snapshot(`Moved “${w.word}”`);
+    w.module = w.module==='everyday' ? 'business' : 'everyday'; await save(); render();
+    toast('Moved to '+w.module); }
+}
+
+/* ---------- import / export ---------- */
+async function importJSON(){
+  const box = document.getElementById('importBox');
+  let text = box.value.trim();
+  if(!text){ toast('Paste the word list first'); return; }
+  text = text.replace(/^```(json)?/i,'').replace(/```$/,'').trim();
+  let arr;
+  try{
+    arr = JSON.parse(text);
+    if(arr && !Array.isArray(arr) && Array.isArray(arr.words)){
+      // full backup file: restore words AND check-in history / review progress
+      const full = await askConfirm(`This is a full backup (${arr.words.length} words${arr.exported?', exported '+new Date(arr.exported).toLocaleDateString():''}). Restore it completely — words, review progress and check-in streak — replacing what is here now?`, {okLabel:'Restore backup'});
+      if(full){
+        await snapshot('Restore full backup');
+        db = { words: arr.words, checkins: arr.checkins || {}, settings: arr.settings || undefined };
+        await save(); box.value=''; session.active=false; toast(`Restored ${db.words.length} words with progress`); go('today'); return;
+      }
+      arr = arr.words;   // user chose Cancel: fall through and merge the words only (as new entries)
+    }
+    if(!Array.isArray(arr)) arr = [arr];
+  }catch(e){ toast('That doesn’t look like valid JSON — check the paste'); return; }
+  await snapshot(`Import of ${arr.length} entr${arr.length===1?'y':'ies'}`);
+  let ok=0, upd=0, bad=0;
+  for(const o of arr){
+    const r = addWord(o||{}, true);
+    if(r===true) ok++; else if(r==='updated') upd++; else bad++;
+  }
+  await save();
+  box.value='';
+  toast(`Imported ${ok} new`+(upd?`, updated ${upd} existing`:'' )+(bad?`, ${bad} skipped (no word)`:''));
+  render();
+}
+function importFile(inp){
+  const f = inp.files && inp.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => { document.getElementById('importBox').value = r.result; inp.value=''; importJSON(); };
+  r.onerror = () => toast('Could not read that file');
+  r.readAsText(f);
+}
+function exportJSON(){
+  const payload = { app:'lexikon', exported: new Date().toISOString(), words: db.words, checkins: db.checkins, settings: db.settings||null };
+  const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lexikon-backup-'+todayStr()+'.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ---------- pronunciation (Web Speech API, British voice) ---------- */
+let voiceCache = null;
+function pickVoice(){
+  if(!('speechSynthesis' in window)) return null;
+  const vs = speechSynthesis.getVoices();
+  if(!vs.length) return null;
+  const gb = vs.filter(v => /en[-_]GB/i.test(v.lang));
+  const pref = ['Google UK English Female','Google UK English Male','Daniel','Kate','Serena','Stephanie','Arthur','Martha','Microsoft Sonia','Microsoft Libby','Microsoft Ryan','Microsoft Hazel','Microsoft Susan','Microsoft George'];
+  for(const name of pref){ const v = gb.find(v=>v.name.includes(name)); if(v) return v; }
+  if(gb.length) return gb[0];
+  return vs.find(v=>/^en/i.test(v.lang)) || vs[0];
+}
+function englishOnly(t){ // strip Chinese translation from example sentence for TTS
+  return String(t||'').replace(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef].*$/,'').trim();
+}
+function speak(text, btn, slow){
+  if(!('speechSynthesis' in window)){ toast('Your browser has no speech engine — try Chrome, Edge or Safari'); return; }
+  speechSynthesis.cancel();
+  if(!voiceCache) voiceCache = pickVoice();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-GB';
+  if(voiceCache) u.voice = voiceCache;
+  u.rate = slow ? 0.55 : 0.9;
+  u.pitch = 1;
+  if(btn){ btn.classList.add('playing'); u.onend = u.onerror = ()=>btn.classList.remove('playing'); }
+  speechSynthesis.speak(u);
+}
+if('speechSynthesis' in window){
+  speechSynthesis.onvoiceschanged = ()=>{ voiceCache = pickVoice(); };
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('button.say[data-say]');
+  if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  speak(b.dataset.say, b, b.dataset.slow === '1');
+});
+function voiceLabel(){
+  if(!('speechSynthesis' in window)) return 'Speech not supported in this browser.';
+  if(!voiceCache) voiceCache = pickVoice();
+  if(!voiceCache) return 'Loading voices…';
+  return `Voice: ${voiceCache.name} (${voiceCache.lang})`;
+}
+
+/* ---------- chapters (master index, from the book's 目录) ---------- */
+const BOOK_CHAPTERS = [
+  [1,'自然地理'],[2,'植物研究'],[3,'动物保护'],[4,'太空探索'],[5,'学校教育'],[6,'科技发明'],
+  [7,'文化历史'],[8,'语言演化'],[9,'娱乐运动'],[10,'物品材料'],[11,'时尚潮流'],[12,'饮食健康'],
+  [13,'建筑场所'],[14,'交通旅行'],[15,'国家政府'],[16,'社会经济'],[17,'法律法规'],[18,'沙场争锋'],
+  [19,'社会角色'],[20,'行为动作'],[21,'身心健康'],[22,'时间日期']
+];
+const chapterLabel = n => { const c = BOOK_CHAPTERS.find(x=>x[0]===n); return c ? `Ch.${c[0]} ${c[1]}` : `Ch.${n}`; };
+// Determine a word's chapter: explicit field, else parsed from the source text ("Ch.1 自然地理", "Chapter 3").
+function chapterOf(w){
+  if(w.chapter && String(w.chapter).trim()) return String(w.chapter).trim();
+  const m = /Ch(?:apter)?\.?\s*(\d{1,2})/i.exec(w.source||'');
+  if(m) return chapterLabel(parseInt(m[1]));
+  return '';
+}
+function chapterSortKey(label){
+  const m = /Ch\.?\s*(\d{1,2})/i.exec(label||'');
+  return m ? parseInt(m[1]) : 999;           // non-book chapters (e.g. emails) go last
+}
+const slug = t => 'sec-' + String(t||'other').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g,'-');
+function jumpTo(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'start'});
+  document.querySelectorAll('.index a.on').forEach(a=>a.classList.remove('on'));
+  const link = document.querySelector(`.index a[data-target="${id}"]`); if(link) link.classList.add('on');
+  el.classList.add('flashhead'); setTimeout(()=>el.classList.remove('flashhead'), 1200);
+}
+
+/* ---------- rendering ---------- */
+function go(v){ view = v; session.active = false; render(); }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function stageDots(stage){
+  let h = '<div class="stages" aria-hidden="true">';
+  for(let i=0;i<INTERVALS.length;i++){
+    h += `<i class="${stage>INTERVALS.length-1?'mastered':(i<stage?'done':'')}"></i>`;
+  }
+  h += '</div>';
+  const label = stage>=INTERVALS.length ? 'mastered' : `stage ${stage} of ${INTERVALS.length}`;
+  return h + `<span class="stages-label">${label}</span>`;
+}
+function nextLabel(w){
+  const t = todayStr();
+  if(isNew(w)) return '<span class="nextrev">new · not started</span>';
+  if(w.next<=t) return '<span class="nextrev due">due today</span>';
+  const days = Math.round((new Date(w.next)-new Date(t))/86400000);
+  return `<span class="nextrev">next in ${days} day${days===1?'':'s'}</span>`;
+}
+
+function render(){
+  document.getElementById('streakNum').textContent = streak();
+  const due = dueWords().length;
+  const badge = document.getElementById('dueBadge');
+  badge.style.display = due? 'inline-block':'none';
+  badge.textContent = due;
+  ['today','everyday','business','add'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active', view===t);
+  });
+  document.body.classList.toggle('wide', view==='everyday' || view==='business');
+  const m = document.getElementById('main');
+  if(view==='today') m.innerHTML = renderToday();
+  else if(view==='add') m.innerHTML = renderAdd();
+  else m.innerHTML = renderList(view);
+  if(view==='add') syncModPick();
+}
+
+function renderToday(){
+  const total = db.words.length;
+  const mastered = db.words.filter(w=>w.stage>=INTERVALS.length).length;
+  const work = todayWork();
+  const {newTarget, reviewCap} = todayTargets();
+  const st = settings(), pl = todayPlan();
+  const learned = db.words.filter(w=>!isNew(w)).length;
+
+  const stats = `<div class="statgrid">
+    <div class="stat"><b>${total}</b><span>words</span></div>
+    <div class="stat"><b>${work.rev.length}</b><span>reviews due</span></div>
+    <div class="stat"><b>${work.pool.length}</b><span>new waiting</span></div>
+  </div>`;
+
+  if(total===0){
+    return stats + `<div class="empty"><p style="font-family:var(--display);font-size:19px;font-weight:700;margin-bottom:6px">Your notebook is empty</p>
+    <p>Add your first words in <b>Add words</b> — or upload a photo of an email or vocabulary book in the chat and paste the import block here.</p></div>`;
+  }
+
+  // ---- plan bar (always visible above the deck) ----
+  const proj = projectLoad(14);
+  const peak = Math.max(...proj.map(p=>p.reviews+p.news));
+  const daysToClear = st.newPerDay>0 ? Math.ceil(work.pool.length / st.newPerDay) : null;
+  const sg = suggestTargets();
+  const suggestLine = (sg.newPerDay!==st.newPerDay)
+    ? `<span class="sortlink" onclick="applySuggested()">Suggested for your backlog: ${sg.newPerDay} new/day</span>` : `Suggested pace for your backlog ✓`;
+  const planBar = `<div class="plan">
+    <div class="planrow">
+      <div class="planitem">
+        <span class="planlbl">New words today</span>
+        <div class="stepper"><button onclick="flexToday('new',-5)" ${newTarget<=0?'disabled':''}>−</button><b>${newTarget}</b><button onclick="flexToday('new',5)">+</button></div>
+        <span class="plansub">${pl.introduced} shown · ${work.newWaiting} waiting</span>
+      </div>
+      <div class="planitem">
+        <span class="planlbl">Reviews today (cap)</span>
+        <div class="stepper"><button onclick="flexToday('review',-10)" ${reviewCap<=0?'disabled':''}>−</button><b>${reviewCap}</b><button onclick="flexToday('review',10)">+</button></div>
+        <span class="plansub">${pl.reviewed} done${work.revDeferred?` · <span style="color:var(--danger)">${work.revDeferred} deferred to tomorrow</span>`:''}</span>
+      </div>
+    </div>
+    <div class="planfoot">
+      <span>Default pace: <span class="sortlink" onclick="askPrompt('New words per day',${st.newPerDay}).then(v=>{ if(v!==null) setNewPerDay(parseInt(v)||0) })">${st.newPerDay} new/day</span> · <span class="sortlink" onclick="askPrompt('Review cap per day',${st.reviewCap}).then(v=>{ if(v!==null) setReviewCap(parseInt(v)||0) })">cap ${st.reviewCap}</span> · ${suggestLine}</span>
+      <span>${daysToClear!==null && work.pool.length ? `Backlog clears in ${daysToClear} day${daysToClear===1?'':'s'} · ` : ''}next 2 weeks peak ≈ ${peak} cards/day</span>
+    </div>
+    <div class="spark" title="Projected cards per day, next 14 days">${proj.map(p=>`<i style="height:${Math.max(4, Math.round((p.reviews+p.news)/Math.max(peak,1)*36))}px" title="${p.date}: ${p.reviews} reviews + ${p.news} new"></i>`).join('')}</div>
+  </div>`;
+
+  const nothingLeft = (work.revTake.length===0 && work.newTake.length===0) || (session.active && session.queue.length===0);
+  if(nothingLeft){
+    const checked = db.checkins[todayStr()];
+    const more = (work.revDeferred || work.newWaiting)
+      ? `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px">
+          ${work.revDeferred?`<button class="btn ghost" onclick="flexToday('review',10)">Do 10 more reviews</button>`:''}
+          ${work.newWaiting?`<button class="btn ghost" onclick="flexToday('new',5)">Learn 5 more new words</button>`:''}
+         </div>` : '';
+    return stats + planBar + `<div class="card done-panel">
+      <div class="big">${checked ? 'Today’s plan complete ✓' : 'Nothing scheduled today'}</div>
+      <p>${checked ? `You reviewed ${pl.reviewed} and met ${pl.introduced} new words. Your streak is safe — come back tomorrow, or push a little further:` : 'No words are due, but you can still log the day to keep your streak.'}</p>
+      ${checked ? more : '<button class="btn primary" onclick="manualCheckin()">Check in for today</button>'}
+    </div>`;
+  }
+  if(!session.active) startSession();
+  const w = db.words.find(x=>x.id===session.queue[session.idx]);
+  if(!w){ session.active=false; return renderToday(); }
+  const wasNew = isNew(w);
+  if(wasNew){ markIntro(w); save(); }
+  const remaining = session.queue.length;
+  return stats + planBar + `<div class="flash">
+    <span class="tag ${wasNew?'group':w.module}">${wasNew?'✦ new word':w.module}${w.group?` · ${esc(w.group)}`:''}</span>
+    <span class="count">${remaining} left</span>
+    <span class="word">${esc(w.word)}</span>
+    <div class="saybar">
+      <button class="say" data-say="${esc(w.word)}">▶ Listen</button>
+      <button class="say slow" data-say="${esc(w.word)}" data-slow="1">▶ Slow</button>
+    </div>
+    ${session.revealed ? `
+      <div class="answer">
+        ${w.phonetic?`<div class="phon">${esc(w.phonetic)}</div>`:''}
+        ${w.meaning?`<div class="meaning">${esc(w.meaning)}</div>`:''}
+        ${w.example?`<div class="example">${esc(w.example)} <button class="say" data-say="${esc(englishOnly(w.example))}" title="Listen to the sentence">▶</button></div>`:''}
+        ${w.source?`<div class="source">Source: ${esc(w.source)}</div>`:''}
+      </div>
+      <div class="reviewbtns">
+        <button class="btn bad" onclick="grade(false)">${wasNew?'Not yet — show again':'Forgot — show again'}</button>
+        <button class="btn good" onclick="grade(true)">${wasNew?'Got it':'Remembered'}</button>
+      </div>`
+    : `<div class="reviewbtns"><button class="btn primary" onclick="reveal()">Show meaning</button></div>`}
+    <div class="curvebar">${stageDots(w.stage)}</div>
+  </div>
+  <p class="voice-note">${esc(voiceLabel())} · Listen first, say it aloud, then reveal to compare.</p>
+  <p class="footer-note">Reviews come first (oldest overdue at the front), then today’s new words. Remembered words move up the curve (1 → 2 → 4 → 7 → 15 → 30 → 60 days); forgotten words slide back and repeat at the end of today’s deck.</p>`;
+}
+function reveal(){ session.revealed = true; render(); }
+async function manualCheckin(){ await checkin(); render(); toast('Checked in — streak +1'); }
+
+function renderList(mod){
+  const q = searchTerm[mod].toLowerCase();
+  const all = db.words.filter(w=>w.module===mod);
+  const words = all
+    .filter(w=> !q || w.word.toLowerCase().includes(q) || (w.meaning||'').toLowerCase().includes(q) || (w.group||'').toLowerCase().includes(q) || chapterOf(w).toLowerCase().includes(q));
+  const byGroup = listMode==='group';
+  // book order: chapter number → group first-appearance → insertion order
+  const order = []; all.forEach(w=>{ const g=w.group||''; if(!order.includes(g)) order.push(g); });
+  if(byGroup){
+    words.sort((a,b)=> chapterSortKey(chapterOf(a)) - chapterSortKey(chapterOf(b))
+      || order.indexOf(a.group||'') - order.indexOf(b.group||'') || a.added.localeCompare(b.added) || a.id.localeCompare(b.id));
+  }else{
+    words.sort((a,b)=> a.next.localeCompare(b.next) || a.word.localeCompare(b.word));
+  }
+  const title = mod==='everyday' ? 'Everyday language' : 'Business language';
+
+  // ---- master index (sidebar) : chapters → groups, with counts, built from ALL words in the module ----
+  const tree = new Map();
+  all.sort((a,b)=> chapterSortKey(chapterOf(a)) - chapterSortKey(chapterOf(b)) || order.indexOf(a.group||'') - order.indexOf(b.group||''))
+     .forEach(w=>{ const c = chapterOf(w)||'Other'; const g = w.group||'Ungrouped';
+       if(!tree.has(c)) tree.set(c, new Map()); const gm = tree.get(c); gm.set(g, (gm.get(g)||0)+1); });
+  let index = `<nav class="index" aria-label="Vocabulary index"><div class="indexhead">Index <small>${all.length} words</small></div>`;
+  const showBook = mod==='everyday';
+  const chaptersToShow = showBook
+    ? BOOK_CHAPTERS.map(c=>chapterLabel(c[0])).concat([...tree.keys()].filter(c=>chapterSortKey(c)===999))
+    : [...tree.keys()];
+  for(const c of chaptersToShow){
+    const gm = tree.get(c);
+    const n = gm ? [...gm.values()].reduce((a,b)=>a+b,0) : 0;
+    if(!gm){ index += `<div class="ix-ch empty"><span>${esc(c)}</span><small>—</small></div>`; continue; }
+    index += `<a class="ix-ch" href="#" data-target="${slug(c)}" onclick="jumpTo('${slug(c)}');return false;"><span>${esc(c)}</span><small>${n}</small></a>`;
+    for(const [g,cnt] of gm){
+      index += `<a class="ix-g" href="#" data-target="${slug(c+'-'+g)}" onclick="jumpTo('${slug(c+'-'+g)}');return false;"><span>${esc(g)}</span><small>${cnt}</small></a>`;
+    }
+  }
+  index += `</nav>`;
+
+  let h = `<div class="listlayout">${index}<div class="listmain"><h2>${title}</h2>
+    <p class="hint">${all.length} words · <span class="sortlink ${byGroup?'on':''}" onclick="listMode='group';render()">by chapter &amp; group</span> · <span class="sortlink ${byGroup?'':'on'}" onclick="listMode='due';render()">by next review</span></p>
+    <div class="searchbar"><input type="text" placeholder="Search words, meanings, groups or chapters…" value="${esc(searchTerm[mod])}"
+      oninput="searchTerm['${mod}']=this.value;render();"></div>`;
+  if(words.length===0){
+    h += `<div class="empty">No words here yet${q?' matching your search':''}.</div></div></div>`;
+    return h;
+  }
+  let lastChapter = null;
+  let lastGroup = null;
+  for(const w of words){
+    const ch = chapterOf(w)||'Other';
+    if(byGroup && ch !== lastChapter){
+      lastChapter = ch; lastGroup = null;
+      const cnt = words.filter(x=>(chapterOf(x)||'Other')===ch).length;
+      h += `<div class="chaphead" id="${slug(ch)}"><span>${esc(ch)}</span><small>${cnt} words</small></div>`;
+    }
+    if(byGroup && (w.group||'') !== lastGroup){
+      lastGroup = w.group||'';
+      const cnt = words.filter(x=>(chapterOf(x)||'Other')===ch && (x.group||'')===lastGroup).length;
+      h += `<div class="grouphead" id="${slug(ch+'-'+(lastGroup||'Ungrouped'))}"><span>${lastGroup ? esc(lastGroup) : 'Ungrouped'}</span><small>${cnt}</small></div>`;
+    }
+    h += `<div class="card">
+      <div class="wordrow">
+        <div>
+          <span class="w">${esc(w.word)}</span>${w.phonetic?` <span class="phon">${esc(w.phonetic)}</span>`:''}<button class="say" title="Listen (British English)" data-say="${esc(w.word)}">▶</button>
+          ${w.meaning?`<div class="meaning">${esc(w.meaning)}</div>`:''}
+          ${w.example?`<div class="example">${esc(w.example)}</div>`:''}
+          ${w.source?`<div class="source">Source: ${esc(w.source)} · added ${w.added}</div>`:`<div class="source">Added ${w.added}</div>`}
+        </div>
+        <div class="rowbtns">
+          <button class="iconbtn" onclick="moveWord('${w.id}')" title="Move to the other module">Move</button>
+          <button class="iconbtn danger" onclick="askConfirm('Remove “${esc(w.word)}”?',{okLabel:'Delete',danger:true}).then(ok=>{ if(ok) removeWord('${w.id}') })">Delete</button>
+        </div>
+      </div>
+      <div class="meta">
+        <span class="tag ${w.module}">${w.module}</span>${w.group?`<span class="tag group">${esc(w.group)}</span>`:''}
+        ${stageDots(w.stage)}
+        ${nextLabel(w)}
+      </div>
+    </div>`;
+  }
+  h += `</div></div>`;
+  return h;
+}
+
+function renderAdd(){
+  return `<h2>Add words</h2>
+  <p class="hint">Add a single word by hand, or paste an import block that Claude prepared from your photo.</p>
+  <div class="card">
+    <form onsubmit="return submitWord(event)">
+      <div class="field"><label for="f-word">Word or phrase</label>
+        <input type="text" id="f-word" required placeholder="e.g. to touch base"></div>
+      <div class="field"><label for="f-chapter">Chapter / master category (optional)</label>
+        <input type="text" id="f-chapter" list="chapterlist" placeholder="e.g. Ch.1 自然地理"><datalist id="chapterlist">${BOOK_CHAPTERS.map(c=>`<option value="${esc(chapterLabel(c[0]))}">`).join('')}</datalist></div>
+      <div class="field"><label for="f-group">Topic group (optional)</label>
+        <input type="text" id="f-group" list="grouplist" placeholder="e.g. Earth's structure"><datalist id="grouplist">${[...new Set(db.words.map(w=>w.group).filter(Boolean))].map(g=>`<option value="${esc(g)}">`).join('')}</datalist></div>
+      <div class="field"><label for="f-phonetic">Phonetic transcription (optional)</label>
+        <input type="text" id="f-phonetic" placeholder="e.g. /tʌtʃ beɪs/"></div>
+      <div class="field"><label for="f-meaning">Meaning</label>
+        <input type="text" id="f-meaning" placeholder="e.g. to make brief contact, to catch up"></div>
+      <div class="field"><label for="f-example">Example sentence</label>
+        <textarea id="f-example" placeholder="e.g. Let’s touch base on Friday about the Q3 report."></textarea></div>
+      <div class="field"><label for="f-source">Source / reference</label>
+        <input type="text" id="f-source" placeholder="e.g. Email from client, 14 Aug"></div>
+      <div class="field"><label>Module</label>
+        <div class="modpick">
+          <button type="button" id="pick-everyday" onclick="addModule='everyday';syncModPick()">Everyday</button>
+          <button type="button" id="pick-business" onclick="addModule='business';syncModPick()">Business</button>
+        </div></div>
+      <button class="btn primary" type="submit">Save word</button>
+    </form>
+  </div>
+
+  <div class="divider">Import from a photo extraction</div>
+  <div class="card">
+    <p class="hint" style="margin-bottom:10px">Upload your photo in the chat; Claude will reply with a ready-made JSON block. Paste it here — words that already exist are updated in place (their review progress is kept). Format:<br>
+    <code style="font-size:12px">[{"word":"…","phonetic":"/…/","meaning":"…","example":"…","source":"…","chapter":"Ch.1 自然地理","group":"…","module":"everyday|business"}]</code></p>
+    <textarea id="importBox" style="min-height:130px;font-family:ui-monospace,monospace;font-size:12.5px" placeholder='[{"word":"leverage","meaning":"to use something to maximum advantage","example":"We can leverage our network.","source":"Email, 12 Aug","module":"business"}]'></textarea>
+    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn primary" onclick="importJSON()">Import pasted text</button>
+      <label class="btn ghost filebtn">Import from file… <input type="file" accept=".json,application/json,text/plain" onchange="importFile(this)"></label>
+      <button class="btn ghost" onclick="exportJSON()">Export full backup</button>
+    </div>
+  </div>
+
+  <div class="divider">Testing</div>
+  <div class="card">
+    <p class="hint" style="margin-bottom:6px"><b>Revert</b> — undo the most recent change (an import, manual add, delete, move or initialise) and go back to the version before it. Each press steps back one more change, up to ${MAX_HISTORY}.</p>
+    <p class="hint" style="margin-bottom:12px" id="historyInfo">${esc(historyLabel())}</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px">
+      <button class="btn ghost" onclick="revert()" ${history.length?'':'disabled'}>Revert to previous version</button>
+    </div>
+    <p class="hint" style="margin-bottom:12px"><b>Initialise</b> — reset the app to its original empty state, removing every word, review progress and check-in streak. Handy while you’re testing import templates. (Initialise itself can be reverted.)</p>
+    <button class="btn bad" onclick="initialiseApp()">Initialise (clear all data)</button>
+  </div>`;
+}
+async function initialiseApp(){
+  const n = db.words.length;
+  if(!await askConfirm(`Initialise the app? This deletes ${n} word${n===1?'':'s'} and your check-in history. (You can undo this with Revert.)`, {okLabel:'Initialise', danger:true})) return;
+  await snapshot('Initialise');
+  db = { words: [], checkins: {} };
+  session = { queue: [], idx: 0, revealed: false, doneCount: 0, active: false };
+  searchTerm = { everyday:'', business:'' };
+  await save();
+  toast('Initialised — the app is back to its empty state');
+  go('today');
+}
+function syncModPick(){
+  const e = document.getElementById('pick-everyday'), b = document.getElementById('pick-business');
+  if(!e||!b) return;
+  e.className = addModule==='everyday' ? 'sel-everyday' : '';
+  b.className = addModule==='business' ? 'sel-business' : '';
+}
+async function submitWord(ev){
+  ev.preventDefault();
+  const wordVal = document.getElementById('f-word').value.trim();
+  if(!wordVal){ toast('Please enter a word'); return false; }
+  const before = JSON.parse(JSON.stringify(db));
+  const r = addWord({
+    word: wordVal,
+    phonetic: document.getElementById('f-phonetic').value,
+    group: document.getElementById('f-group').value,
+    chapter: document.getElementById('f-chapter').value,
+    meaning: document.getElementById('f-meaning').value,
+    example: document.getElementById('f-example').value,
+    source: document.getElementById('f-source').value,
+    module: addModule
+  });
+  if(r==='dup'){ toast('That word is already in this module'); return false; }
+  if(r!==true){ toast('Please enter a word'); return false; }
+  history.push({ at:new Date().toISOString(), label:`Added “${wordVal}”`, words:before.words.length, db:before });
+  while(history.length > MAX_HISTORY) history.shift();
+  await saveHistory();
+  await save();
+  ev.target.reset();
+  toast('Word saved — it’s due for its first review today');
+  render();
+  return false;
+}
+
+/* ---------- service worker (offline support when hosted over https) ---------- */
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+
+/* ---------- boot ---------- */
+(async function(){
+  if(standalone) document.getElementById('modeNote').textContent = ' · Standalone mode: data is saved in this browser — export a backup regularly.';
+  await load();
+  await loadHistory();
+  render();
+})();
+</script>
+</body>
+</html>
