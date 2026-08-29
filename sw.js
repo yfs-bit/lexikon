@@ -1,5 +1,5 @@
-// Lexikon service worker: network-first so updates arrive, cache fallback so it works offline.
-const CACHE = 'lexikon-v1';
+// Lexikon service worker v2: network-first so updates arrive, cache fallback so it works offline.
+const CACHE = 'lexikon-v2';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

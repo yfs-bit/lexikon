@@ -753,19 +753,9 @@ function reveal(){ session.revealed = true; render(); }
 async function manualCheckin(){ await checkin(); render(); toast('Checked in — streak +1'); }
 
 function renderList(mod){
-  const q = searchTerm[mod].toLowerCase();
   const all = db.words.filter(w=>w.module===mod);
-  const words = all
-    .filter(w=> !q || w.word.toLowerCase().includes(q) || (w.meaning||'').toLowerCase().includes(q) || (w.group||'').toLowerCase().includes(q) || chapterOf(w).toLowerCase().includes(q));
   const byGroup = listMode==='group';
-  // book order: chapter number → group first-appearance → insertion order
   const order = []; all.forEach(w=>{ const g=w.group||''; if(!order.includes(g)) order.push(g); });
-  if(byGroup){
-    words.sort((a,b)=> chapterSortKey(chapterOf(a)) - chapterSortKey(chapterOf(b))
-      || order.indexOf(a.group||'') - order.indexOf(b.group||'') || a.added.localeCompare(b.added) || a.id.localeCompare(b.id));
-  }else{
-    words.sort((a,b)=> a.next.localeCompare(b.next) || a.word.localeCompare(b.word));
-  }
   const title = mod==='everyday' ? 'Everyday language' : 'Business language';
 
   // ---- master index (sidebar) : chapters → groups, with counts, built from ALL words in the module ----
@@ -789,13 +779,50 @@ function renderList(mod){
   }
   index += `</nav>`;
 
-  let h = `<div class="listlayout">${index}<div class="listmain"><h2>${title}</h2>
+  return `<div class="listlayout">${index}<div class="listmain"><h2>${title}</h2>
     <p class="hint">${all.length} words · <span class="sortlink ${byGroup?'on':''}" onclick="listMode='group';render()">by chapter &amp; group</span> · <span class="sortlink ${byGroup?'':'on'}" onclick="listMode='due';render()">by next review</span></p>
     <div class="searchbar"><input type="text" placeholder="Search words, meanings, groups or chapters…" value="${esc(searchTerm[mod])}"
-      oninput="searchTerm['${mod}']=this.value;render();"></div>`;
+      oninput="onSearchInput('${mod}', this.value)"></div>
+    <div id="listResults">${buildResults(mod)}</div></div></div>`;
+}
+
+/* Build only the result cards (called on every search keystroke — the input box itself is never rebuilt) */
+function buildResults(mod){
+  const q = searchTerm[mod].trim().toLowerCase();
+  const all = db.words.filter(w=>w.module===mod);
+  const order = []; all.forEach(w=>{ const g=w.group||''; if(!order.includes(g)) order.push(g); });
+  let words, searching = !!q, matchedOn = 'word';
+  if(searching){
+    // 1) headword matches only, ranked: exact → starts-with → contains, then shorter/alphabetical.
+    //    This makes the list narrow towards the exact word as you type.
+    const rank = w => { const t = w.word.toLowerCase();
+      return t === q ? 0 : t.startsWith(q) ? 1 : t.includes(q) ? 2 : 9; };
+    words = all.filter(w => rank(w) < 9)
+               .sort((a,b)=> rank(a)-rank(b) || a.word.length-b.word.length || a.word.localeCompare(b.word));
+    // 2) fallback: nothing matched the headword → search meanings/examples/groups/chapters (e.g. Chinese search)
+    if(words.length===0){
+      matchedOn = 'content';
+      words = all.filter(w => (w.meaning||'').toLowerCase().includes(q) || (w.example||'').toLowerCase().includes(q)
+        || (w.group||'').toLowerCase().includes(q) || chapterOf(w).toLowerCase().includes(q))
+        .sort((a,b)=> a.word.localeCompare(b.word));
+    }
+  }else{
+    words = all.slice();
+    const byGroup = listMode==='group';
+    if(byGroup){
+      words.sort((a,b)=> chapterSortKey(chapterOf(a)) - chapterSortKey(chapterOf(b))
+        || order.indexOf(a.group||'') - order.indexOf(b.group||'') || a.added.localeCompare(b.added) || a.id.localeCompare(b.id));
+    }else{
+      words.sort((a,b)=> a.next.localeCompare(b.next) || a.word.localeCompare(b.word));
+    }
+  }
+  const byGroup = !searching && listMode==='group';
   if(words.length===0){
-    h += `<div class="empty">No words here yet${q?' matching your search':''}.</div></div></div>`;
-    return h;
+    return `<div class="empty">${q?`No words matching “${esc(q)}”.`:'No words here yet.'}</div>`;
+  }
+  let h = '';
+  if(searching){
+    h += `<p class="hint" style="margin-bottom:10px">${words.length} match${words.length===1?'':'es'}${matchedOn==='content'?' (in meanings, examples or groups)':''} — ranked closest first.</p>`;
   }
   let lastChapter = null;
   let lastGroup = null;
@@ -831,8 +858,18 @@ function renderList(mod){
       </div>
     </div>`;
   }
-  h += `</div></div>`;
   return h;
+}
+
+/* Debounced search: update only the results container, leave the input untouched */
+let _searchTimer = null;
+function onSearchInput(mod, value){
+  searchTerm[mod] = value;
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(()=>{
+    const box = document.getElementById('listResults');
+    if(box) box.innerHTML = buildResults(mod);
+  }, 120);
 }
 
 function renderAdd(){
