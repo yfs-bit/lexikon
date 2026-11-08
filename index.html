@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="lexikon-app" content="1">
 <title>Lexikon — Vocabulary Trainer</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1B2A41">
@@ -63,6 +64,12 @@
   .flash .saybar .say{font-size:13px;padding:6px 14px}
   .voice-note{font-size:12px;color:var(--ink-soft);margin-top:10px}
   .example{margin-top:7px;font-style:italic;color:var(--ink-soft);border-left:3px solid var(--hi);padding-left:10px}
+  .pic{display:block;width:auto;height:auto;max-width:min(240px,100%);max-height:200px;margin-top:10px;border-radius:10px;border:1px solid var(--line);background:var(--hi-soft);cursor:zoom-in}
+  .pic[hidden]{display:none}
+  .flash .pic.flashpic{margin:0 auto 14px;max-width:min(300px,100%);max-height:240px}
+  .lightbox{position:fixed;inset:0;background:rgba(27,42,65,.82);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px;cursor:zoom-out}
+  .lightbox[hidden]{display:none}
+  .lightbox img{max-width:min(92vw,720px);max-height:86vh;border-radius:12px;background:#fff;box-shadow:0 20px 60px rgba(0,0,0,.4)}
   .source{margin-top:8px;font-size:12px;color:var(--ink-soft)}
   .meta{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
   .tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:3px 9px;border-radius:20px}
@@ -75,7 +82,7 @@
   .grouphead small{color:var(--ink-soft);font-size:12px}
   .listlayout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:26px;align-items:start}
   .listmain{min-width:0}
-  .index{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 8px 12px;font-size:13px}
+  .index{display:block;margin-bottom:0;position:sticky;top:14px;max-height:calc(100vh - 28px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px 8px 12px;font-size:13px}
   .indexhead{font-family:var(--display);font-size:16px;font-weight:700;padding:4px 8px 8px;border-bottom:2px solid var(--ink);margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline}
   .indexhead small{font:500 11px var(--body);color:var(--ink-soft)}
   .index a,.index .ix-ch.empty{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink);border-radius:7px;padding:5px 8px}
@@ -96,9 +103,13 @@
   @media(max-width:820px){
     body.wide .wrap{max-width:760px}
     .listlayout{display:block}
-    .index{position:static;max-height:none;margin-bottom:16px;columns:2;column-gap:16px}
-    .index .indexhead{column-span:all}
-    .index a,.index .ix-ch.empty{break-inside:avoid}
+    .index{position:static;max-height:none;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:4px}
+    .index .indexhead{flex-basis:100%}
+    .index .ix-ch.empty{display:none}
+    .index a.ix-ch,.index a.ix-g{margin-top:0;padding:4px 9px;background:var(--paper);border-radius:20px;gap:6px}
+    .index a.ix-ch{background:var(--ink);color:var(--paper)}
+    .index a.ix-ch small{color:var(--hi)}
+    .index a.ix-g::before{display:none}
   }
   .sortlink{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
   .sortlink.on{color:var(--ink);font-weight:600;text-decoration:none}
@@ -217,6 +228,7 @@
   <main id="main"></main>
 </div>
 <div class="toast" id="toast" role="status"></div>
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-label="Picture"><img id="lightboxImg" alt=""></div>
 <div class="modal-bg" id="modalBg" hidden>
   <div class="modal" role="dialog" aria-modal="true">
     <p id="modalMsg"></p>
@@ -286,6 +298,7 @@ async function load(){
 async function save(){
   try{ await store.set(STORE_KEY, JSON.stringify(db)); }
   catch(e){ toast('Could not save — please try again'); }
+  if(typeof notifyExtension === 'function') notifyExtension();
 }
 
 /* ---------- streak & due ---------- */
@@ -468,6 +481,7 @@ function addWord(o, updateDup){
     if(o.meaning!==undefined) dup.meaning = String(o.meaning||'').trim();
     if(o.example!==undefined) dup.example = String(o.example||'').trim();
     if(o.source!==undefined)  dup.source  = String(o.source||'').trim();
+    if(o.image!==undefined)   dup.image   = cleanImageRef(o.image);
     return 'updated';
   }
   db.words.push({
@@ -478,6 +492,7 @@ function addWord(o, updateDup){
     meaning: String(o.meaning||'').trim(),
     example: String(o.example||'').trim(),
     source: String(o.source||'').trim(),
+    image: cleanImageRef(o.image),
     module: mod, added: todayStr(), stage: 0, next: todayStr()
   });
   return true;
@@ -508,24 +523,29 @@ async function importJSON(){
     if(arr && !Array.isArray(arr) && Array.isArray(arr.words)){
       // full backup file: restore words AND check-in history / review progress
       const full = await askConfirm(`This is a full backup (${arr.words.length} words${arr.exported?', exported '+new Date(arr.exported).toLocaleDateString():''}). Restore it completely — words, review progress and check-in streak — replacing what is here now?`, {okLabel:'Restore backup'});
+      const restoredPics = await restorePictures(arr.pictures);
       if(full){
         await snapshot('Restore full backup');
         db = { words: arr.words, checkins: arr.checkins || {}, settings: arr.settings || undefined };
-        await save(); box.value=''; session.active=false; toast(`Restored ${db.words.length} words with progress`); go('today'); return;
+        await save(); box.value=''; session.active=false; toast(`Restored ${db.words.length} words with progress`+(restoredPics?` and ${restoredPics} picture${restoredPics===1?'':'s'}`:'')); go('today'); return;
       }
       arr = arr.words;   // user chose Cancel: fall through and merge the words only (as new entries)
     }
     if(!Array.isArray(arr)) arr = [arr];
   }catch(e){ toast('That doesn’t look like valid JSON — check the paste'); return; }
   await snapshot(`Import of ${arr.length} entr${arr.length===1?'y':'ies'}`);
-  let ok=0, upd=0, bad=0;
+  let ok=0, upd=0, bad=0, pics=0, picFail=0;
   for(const o of arr){
+    if(o && typeof o.image === 'string' && o.image.startsWith('data:image/')){
+      try{ o.image = 'idb:' + await storePicture(o.image); pics++; }
+      catch(e){ o.image = ''; picFail++; }
+    }
     const r = addWord(o||{}, true);
     if(r===true) ok++; else if(r==='updated') upd++; else bad++;
   }
   await save();
   box.value='';
-  toast(`Imported ${ok} new`+(upd?`, updated ${upd} existing`:'' )+(bad?`, ${bad} skipped (no word)`:''));
+  toast(`Imported ${ok} new`+(upd?`, updated ${upd} existing`:'' )+(pics?` · ${pics} picture${pics===1?'':'s'}`:'')+(bad?`, ${bad} skipped (no word)`:'')+(picFail?` · ${picFail} picture${picFail===1?'':'s'} couldn’t be stored in this browser`:''));
   render();
 }
 function importFile(inp){
@@ -535,8 +555,13 @@ function importFile(inp){
   r.onerror = () => toast('Could not read that file');
   r.readAsText(f);
 }
-function exportJSON(){
-  const payload = { app:'lexikon', exported: new Date().toISOString(), words: db.words, checkins: db.checkins, settings: db.settings||null };
+async function exportJSON(){
+  const pictures = {};
+  for(const w of db.words){
+    const id = picIdOf(w.image);
+    if(id && !pictures[id]){ try{ const d = await picGet(id); if(d) pictures[id] = d; }catch(e){} }
+  }
+  const payload = { app:'lexikon', exported: new Date().toISOString(), words: db.words, checkins: db.checkins, settings: db.settings||null, pictures };
   const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -544,6 +569,106 @@ function exportJSON(){
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+/* ---------- pictures ----------
+   Picture data lives in IndexedDB (roomy, and outside localStorage so the notebook,
+   Revert history and extension sync stay small). A word stores only a reference:
+   "idb:<id>" for a stored picture, or a web address / relative path such as img/x.jpg. */
+const PIC_DB = 'lexikon-pictures', PIC_STORE = 'pics';
+const picCache = new Map();
+let picDbP = null;
+function picDb(){
+  if(!picDbP) picDbP = new Promise((res, rej) => {
+    try{
+      const r = indexedDB.open(PIC_DB, 1);
+      r.onupgradeneeded = () => r.result.createObjectStore(PIC_STORE);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error || new Error('IndexedDB unavailable'));
+    }catch(e){ rej(e); }
+  });
+  return picDbP;
+}
+async function picPut(id, dataUrl){
+  const d = await picDb();
+  await new Promise((res, rej) => { const tx = d.transaction(PIC_STORE, 'readwrite'); tx.objectStore(PIC_STORE).put(dataUrl, id); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  picCache.set(id, dataUrl);
+  return id;
+}
+async function picGet(id){
+  if(picCache.has(id)) return picCache.get(id);
+  const d = await picDb();
+  const v = await new Promise((res, rej) => { const r = d.transaction(PIC_STORE).objectStore(PIC_STORE).get(id); r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error); });
+  if(v) picCache.set(id, v);
+  return v;
+}
+function picHash(str){            // FNV-1a, two lanes → stable id for identical pictures
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  for(let i = 0; i < str.length; i++){ const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619); h2 = Math.imul(h2 ^ c, 2246822519); }
+  return (h1 >>> 0).toString(36) + (h2 >>> 0).toString(36) + str.length.toString(36);
+}
+async function storePicture(dataUrl){
+  if(!/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) throw new Error('Not a picture');
+  if(dataUrl.length > 3_000_000) throw new Error('Picture too large');
+  return picPut('p' + picHash(dataUrl), dataUrl);
+}
+async function restorePictures(pics){
+  let n = 0;
+  if(!pics || typeof pics !== 'object') return 0;
+  for(const [id, d] of Object.entries(pics)){
+    if(/^p[a-z0-9]+$/.test(id) && typeof d === 'string'){ try{ await picPut(id, d); n++; }catch(e){} }
+  }
+  return n;
+}
+const picIdOf = ref => (typeof ref === 'string' && ref.startsWith('idb:')) ? ref.slice(4) : '';
+function cleanImageRef(v){
+  v = String(v || '').trim();
+  if(/^idb:p[a-z0-9]+$/.test(v)) return v;
+  if(/^https:\/\/[^\s"'<>]+$/i.test(v)) return v;
+  if(/^[\w\-./]+\.(jpe?g|png|webp|gif)$/i.test(v) && !v.includes('..')) return v;
+  return '';
+}
+function picHTML(w, cls){
+  if(!w.image) return '';
+  const ref = w.image, id = picIdOf(ref);
+  const src = id ? (picCache.get(id) || '') : ref;
+  return `<img class="pic ${cls||''}" data-pic="${esc(ref)}" ${src ? `src="${esc(src)}"` : 'hidden'} alt="Picture: ${esc(w.word)}" decoding="async">`;
+}
+async function hydratePics(root){
+  if(!root) return;
+  for(const img of root.querySelectorAll('img.pic[hidden]')){
+    const id = picIdOf(img.dataset.pic);
+    if(!id) continue;
+    try{ const d = await picGet(id); if(d){ img.src = d; img.hidden = false; } }catch(e){}
+  }
+}
+// resize a chosen photo to max 480 px and store it
+function fileToPicture(file){
+  return new Promise((res, rej) => {
+    if(!file || !/^image\//.test(file.type)) return rej(new Error('Choose an image file'));
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 480 / Math.max(im.naturalWidth, im.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      storePicture(c.toDataURL('image/jpeg', 0.82)).then(res, rej);
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('That image couldn’t be read')); };
+    im.src = url;
+  });
+}
+function openLightbox(src, alt){
+  const lb = document.getElementById('lightbox'); if(!lb) return;
+  const img = document.getElementById('lightboxImg'); img.src = src; img.alt = alt || '';
+  lb.hidden = false;
+}
+document.addEventListener('click', e => {
+  const img = e.target.closest && e.target.closest('img.pic');
+  if(img && img.src){ openLightbox(img.src, img.alt); return; }
+  const lb = e.target.closest && e.target.closest('#lightbox');
+  if(lb){ lb.hidden = true; }
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape'){ const lb = document.getElementById('lightbox'); if(lb) lb.hidden = true; } });
 
 /* ---------- pronunciation (Web Speech API, British voice) ---------- */
 let voiceCache = null;
@@ -656,6 +781,7 @@ function render(){
   else if(view==='add') m.innerHTML = renderAdd();
   else m.innerHTML = renderList(view);
   if(view==='add') syncModPick();
+  hydratePics(m);
 }
 
 function renderToday(){
@@ -734,6 +860,7 @@ function renderToday(){
     </div>
     ${session.revealed ? `
       <div class="answer">
+        ${picHTML(w, 'flashpic')}
         ${w.phonetic?`<div class="phon">${esc(w.phonetic)}</div>`:''}
         ${w.meaning?`<div class="meaning">${esc(w.meaning)}</div>`:''}
         ${w.example?`<div class="example">${esc(w.example)} <button class="say" data-say="${esc(englishOnly(w.example))}" title="Listen to the sentence">▶</button></div>`:''}
@@ -844,6 +971,7 @@ function buildResults(mod){
           <span class="w">${esc(w.word)}</span>${w.phonetic?` <span class="phon">${esc(w.phonetic)}</span>`:''}<button class="say" title="Listen (British English)" data-say="${esc(w.word)}">▶</button>
           ${w.meaning?`<div class="meaning">${esc(w.meaning)}</div>`:''}
           ${w.example?`<div class="example">${esc(w.example)}</div>`:''}
+          ${picHTML(w, '')}
           ${w.source?`<div class="source">Source: ${esc(w.source)} · added ${w.added}</div>`:`<div class="source">Added ${w.added}</div>`}
         </div>
         <div class="rowbtns">
@@ -868,7 +996,7 @@ function onSearchInput(mod, value){
   clearTimeout(_searchTimer);
   _searchTimer = setTimeout(()=>{
     const box = document.getElementById('listResults');
-    if(box) box.innerHTML = buildResults(mod);
+    if(box){ box.innerHTML = buildResults(mod); hydratePics(box); }
   }, 120);
 }
 
@@ -891,6 +1019,8 @@ function renderAdd(){
         <textarea id="f-example" placeholder="e.g. Let’s touch base on Friday about the Q3 report."></textarea></div>
       <div class="field"><label for="f-source">Source / reference</label>
         <input type="text" id="f-source" placeholder="e.g. Email from client, 14 Aug"></div>
+      <div class="field"><label for="f-pic">Picture (optional)</label>
+        <input type="file" id="f-pic" accept="image/*" style="font:400 13.5px var(--body)"></div>
       <div class="field"><label>Module</label>
         <div class="modpick">
           <button type="button" id="pick-everyday" onclick="addModule='everyday';syncModPick()">Everyday</button>
@@ -902,8 +1032,8 @@ function renderAdd(){
 
   <div class="divider">Import from a photo extraction</div>
   <div class="card">
-    <p class="hint" style="margin-bottom:10px">Upload your photo in the chat; Claude will reply with a ready-made JSON block. Paste it here — words that already exist are updated in place (their review progress is kept). Format:<br>
-    <code style="font-size:12px">[{"word":"…","phonetic":"/…/","meaning":"…","example":"…","source":"…","chapter":"Ch.1 自然地理","group":"…","module":"everyday|business"}]</code></p>
+    <p class="hint" style="margin-bottom:10px">Upload your photo in the chat; Claude will reply with a ready-made JSON block. Paste it here, or use <b>Import from file…</b> for files that include pictures. Words that already exist are updated in place (their review progress is kept). Format:<br>
+    <code style="font-size:12px">[{"word":"…","phonetic":"/…/","meaning":"…","example":"…","source":"…","chapter":"Ch.1 自然地理","group":"…","module":"everyday|business","image":"data:image/jpeg;base64,… (optional)"}]</code></p>
     <textarea id="importBox" style="min-height:130px;font-family:ui-monospace,monospace;font-size:12.5px" placeholder='[{"word":"leverage","meaning":"to use something to maximum advantage","example":"We can leverage our network.","source":"Email, 12 Aug","module":"business"}]'></textarea>
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
       <button class="btn primary" onclick="importJSON()">Import pasted text</button>
@@ -944,6 +1074,12 @@ async function submitWord(ev){
   ev.preventDefault();
   const wordVal = document.getElementById('f-word').value.trim();
   if(!wordVal){ toast('Please enter a word'); return false; }
+  let image = '';
+  const picFile = document.getElementById('f-pic').files[0];
+  if(picFile){
+    try{ image = 'idb:' + await fileToPicture(picFile); }
+    catch(e){ toast(e.message || 'The picture couldn’t be saved'); return false; }
+  }
   const before = JSON.parse(JSON.stringify(db));
   const r = addWord({
     word: wordVal,
@@ -953,6 +1089,7 @@ async function submitWord(ev){
     meaning: document.getElementById('f-meaning').value,
     example: document.getElementById('f-example').value,
     source: document.getElementById('f-source').value,
+    image,
     module: addModule
   });
   if(r==='dup'){ toast('That word is already in this module'); return false; }
@@ -972,13 +1109,96 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 
+/* ---------- browser-extension bridge ----------
+   The Lexikon browser extension talks to this page with window.postMessage:
+   it sends words saved while browsing and reviews done from the toolbar, and
+   receives a read-only mirror of the notebook (for its badge and quick review). */
+const APP_VERSION = '2.0';
+const EXT = { connected: false, timer: null };
+let bootReady;
+function postToExt(msg){
+  try{ window.postMessage(Object.assign({ source:'lexikon-site' }, msg), location.origin === 'null' ? '*' : location.origin); }catch(e){}
+}
+function buildMirror(){
+  return { app:'lexikon', version: APP_VERSION, at: new Date().toISOString(), today: todayStr(),
+    settings: Object.assign({}, settings()), plan: Object.assign({}, todayPlan()), checkins: Object.assign({}, db.checkins),
+    words: db.words.map(w=>({ id:w.id, word:w.word, phonetic:w.phonetic||'', meaning:w.meaning||'', example:w.example||'',
+      source:w.source||'', group:w.group||'', chapter:chapterOf(w), module:w.module, stage:w.stage||0, next:w.next,
+      intro:w.intro||'', added:w.added })) };
+}
+function notifyExtension(){
+  if(!EXT.connected) return;
+  clearTimeout(EXT.timer);
+  EXT.timer = setTimeout(()=> postToExt({ type:'mirror', mirror: buildMirror() }), 600);
+}
+const clip = (v, n) => typeof v === 'string' ? v.slice(0, n) : '';
+async function applyExtensionSync(m){
+  const res = { imported:0, duplicates:0, invalid:0, gradesApplied:0, gradesSkipped:0, checkins:0, handledWordIds:[], handledGradeIds:[], handledCheckins:[] };
+  const words = Array.isArray(m.words) ? m.words.slice(0, 500) : [];
+  const grades = Array.isArray(m.grades) ? m.grades.slice(0, 5000) : [];
+  const checkins = Array.isArray(m.checkins) ? m.checkins.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)) : [];
+  if(!words.length && !grades.length && !checkins.length) return res;
+  await snapshot('Sync from browser extension');
+  for(const o of words){
+    if(o && o.xid) res.handledWordIds.push(o.xid);
+    if(!o || typeof o.word !== 'string' || !o.word.trim()){ res.invalid++; continue; }
+    const r = addWord({ word: clip(o.word, 80), phonetic: clip(o.phonetic, 120), meaning: clip(o.meaning, 4000),
+      example: clip(o.example, 1200), source: clip(o.source, 300), group: clip(o.group, 60),
+      chapter: clip(o.chapter, 60), module: clip(o.module, 20) }, false);
+    if(r === true) res.imported++; else if(r === 'dup') res.duplicates++; else res.invalid++;
+  }
+  // reviews done in the toolbar popup: replay in order, only if the word is still in the state the popup saw
+  const t = todayStr();
+  for(const g of grades){
+    if(!g || !g.gid) continue;
+    res.handledGradeIds.push(g.gid);
+    const w = db.words.find(x => x.id === g.id);
+    if(!w || (w.stage||0) !== g.stageBefore || w.next !== g.nextBefore || !!w.intro !== !!g.introBefore || !/^\d{4}-\d{2}-\d{2}$/.test(g.date||'')){ res.gradesSkipped++; continue; }
+    if(!w.intro){ w.intro = g.date; if(g.date === t) todayPlan().introduced++; }
+    if(g.remembered){
+      w.next = addDays(g.date, INTERVALS[Math.min(w.stage||0, INTERVALS.length-1)]);
+      w.stage = Math.min((w.stage||0)+1, INTERVALS.length);
+      w.reviews = (w.reviews||0)+1;
+      if(g.date === t) todayPlan().reviewed++;
+    }else{
+      w.stage = Math.max(0, (w.stage||0)-2);
+      w.lapses = (w.lapses||0)+1;
+    }
+    res.gradesApplied++;
+  }
+  for(const d of checkins){ res.handledCheckins.push(d); if(!db.checkins[d]){ db.checkins[d] = true; res.checkins++; } }
+  session.active = false;
+  await save();
+  render();
+  const parts = [];
+  if(res.imported) parts.push(`${res.imported} word${res.imported===1?'':'s'} added`);
+  if(res.duplicates) parts.push(`${res.duplicates} already here`);
+  if(res.gradesApplied) parts.push(`${res.gradesApplied} review${res.gradesApplied===1?'':'s'} saved`);
+  if(parts.length) toast('Synced from the extension: ' + parts.join(' · '));
+  return res;
+}
+window.addEventListener('message', async e => {
+  if(e.source !== window || !e.data || e.data.source !== 'lexikon-ext') return;
+  const m = e.data;
+  await bootReady;
+  if(m.type === 'ping'){
+    EXT.connected = true;
+    postToExt({ type:'hello', version: APP_VERSION, mirror: buildMirror() });
+  }else if(m.type === 'sync'){
+    EXT.connected = true;
+    const result = await applyExtensionSync(m);
+    postToExt({ type:'synced', nonce: m.nonce, result, mirror: buildMirror() });
+  }
+});
+
 /* ---------- boot ---------- */
-(async function(){
+bootReady = (async function(){
   if(standalone) document.getElementById('modeNote').textContent = ' · Standalone mode: data is saved in this browser — export a backup regularly.';
   await load();
   await loadHistory();
   render();
 })();
+bootReady.then(()=> postToExt({ type:'hello', version: APP_VERSION, mirror: buildMirror() }));
 </script>
 </body>
 </html>
